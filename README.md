@@ -16,22 +16,8 @@ In order to compile the program, run the following command:
 gcc -Wall -lpthread ./**/*.c -o main.out
 ```
 
-<!-- **Or**
-
-```
-bash compile.sh
-``` -->
-
 Once the program has been compiled, run the following command to execute the compiled program:
 
 ```
 ./main.out
 ```
-
-<!-- ### Method 2
-
-Run the following command:
-
-```
-bash execute.sh
-``` -->
