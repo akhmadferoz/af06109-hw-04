@@ -1,21 +1,35 @@
 build:
 	@echo $(shell pwd)
 	@echo "Compiling..."
-	gcc -Wall -lpthread ./**/*.c -o main.out -v
-	@echo "Done compiling."
+	gcc -Wall -lpthread ./*.c -o main.out -v
+	@echo "\nDone compiling.\n"
+	@echo "Generating traffic simulation file...\n"
+	cp main.out traffic
+	@echo "\nDone generating traffic simulation file.\n"
+	@echo "Run the following command to start the simulation:\n\n./traffic <input_file_name>"
+	@echo "Example: ./traffic input.txt\n"
+	@echo "Or run the following command to start the simulation with default input file:\n"
+	@echo "make run\n\n"
 
 rebuild:
 	@echo "Rebuilding..."
-	rm -rf main.out
-	gcc -Wall -lpthread ./**/*.c -o main.out -v
+	rm -rf *.out traffic
+	gcc -Wall -lpthread ./*.c -o main.out -v
 	@echo "Done rebuilding."
+	@echo "Regenerating traffic simulation file."
+	cp main.out traffic
+	@echo "Done regenerating traffic simulation file.\n"
+	@echo "Run the following command to start the simulation:\n\n./traffic <input_file_name>"
+	@echo "Example: ./traffic input.txt\n"
+	@echo "Or run the following command to start the simulation with default input file:\n"
+	@echo "make run\n\n"
 
 clean:
 	@echo "Cleaning..."
-	rm -rf main.out
-	@echo "Done cleaning."
+	rm -rf *.out traffic
+	@echo "Done cleaning.\n"
 
 run:
 	@echo "Initializing..."
-	./main.out
-	@echo "Terminating."
+	./traffic sample_input.txt
+	@echo "Terminating.\n"

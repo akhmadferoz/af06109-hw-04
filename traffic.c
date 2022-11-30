@@ -203,10 +203,10 @@ int main(int nargs, char **args) {
 	int i;
 	int result;
 	int num_cars;
-        void *status;
-        pthread_t street_tid;
-        pthread_t car_tid[MAX_CARS];
-        car car_info[MAX_CARS];
+	void *status;
+	pthread_t street_tid;
+	pthread_t car_tid[MAX_CARS];
+	car car_info[MAX_CARS];
 
 	if (nargs != 2) {
 		printf("Usage: traffic <name of inputfile>\n");
