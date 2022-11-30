@@ -1,7 +1,7 @@
 build:
 	@echo $(shell pwd)
 	@echo "Compiling..."
-	gcc -Wall -lpthread ./*.c -o main.out -v
+	gcc -Wall -lpthread ./traffic.c -o main.out -v
 	@echo "\nDone compiling.\n"
 	@echo "Generating traffic simulation file...\n"
 	cp main.out traffic
@@ -14,7 +14,7 @@ build:
 rebuild:
 	@echo "Rebuilding..."
 	rm -rf *.out traffic
-	gcc -Wall -lpthread ./*.c -o main.out -v
+	gcc -Wall -lpthread ./traffic.c -o main.out -v
 	@echo "Done rebuilding."
 	@echo "Regenerating traffic simulation file."
 	cp main.out traffic
