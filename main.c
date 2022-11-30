@@ -1,8 +1,3 @@
-/*
- * References:
- * IBM C/C++ Documentation: https://www.ibm.com/docs/en
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
