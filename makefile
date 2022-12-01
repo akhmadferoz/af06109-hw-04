@@ -32,4 +32,4 @@ clean:
 run:
 	@echo "Initializing..."
 	./traffic sample_input.txt
-	@echo "Terminating.\n"
+	@echo "Terminating program.\n"
