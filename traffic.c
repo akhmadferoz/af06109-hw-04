@@ -1,5 +1,13 @@
 /*
  * Street synchronization problem code
+ *
+ * Traffic rules:
+ * 1. No more than 3 cars should be present on the street at any instance. 
+ * 	  Subsequent cars can only wait until any one of the 3 cars leaves
+ * 2. There will be either only incoming cars or only outgoing cars travelling at a time. 
+ * 	  However, the streaming should keep running without deadlock in either direction irrespective of how cars arrive
+ * 3. After every 7th car leaves, the street becomes unusable and has to be repaired. 
+ * 	  Cars do not enter the street unless it is ready to use. Only the street thread is allowed to repair the street
  */
 
 #include <pthread.h>
@@ -19,7 +27,11 @@
 #define INCOMING "Incoming"
 #define OUTGOING "Outgoing"
 
+#define MAX_THREADS 4
+
 /* Add your synchronization variables here */
+pthread_mutex_t mutex;
+pthread_cond_t cond;
 
 /* These obvious variables are at your disposal. Feel free to remove them if you want */
 static int cars_on_street;   		/* Total numbers of cars currently on the street */
@@ -48,21 +60,23 @@ initialize(car *arr, char *filename) {
 
 	/* Initialize your synchronization variables (and 
          * other variables you might use) here
-	 */
+	*/
+	pthread_mutex_init(&mutex, NULL);
+	pthread_cond_init(&cond, NULL);
 
-        /* Read in the data file and initialize the car array */
-        FILE *fp;
+	/* Read in the data file and initialize the car array */
+	FILE *fp;
 
-        if((fp=fopen(filename, "r")) == NULL) {
-          printf("Cannot open input file %s for reading.\n", filename);
-          exit(1);
-        }
-        int i =0;
-        while ( (fscanf(fp, "%d%d%s\n", &(arr[i].arrival_time), &(arr[i].travel_time), arr[i].car_direction)!=EOF) && i < MAX_CARS ) {
-             i++;
-        }
-        fclose(fp);
-        return i;
+	if((fp=fopen(filename, "r")) == NULL) {
+		printf("Cannot open input file %s for reading.\n", filename);
+		exit(1);
+	}
+	int i =0;
+	while ( (fscanf(fp, "%d%d%s\n", &(arr[i].arrival_time), &(arr[i].travel_time), arr[i].car_direction)!=EOF) && i < MAX_CARS ) {
+			i++;
+	}
+	fclose(fp);
+	return i;
 }
 
 /* Code executed by street on the event of repair 
@@ -86,11 +100,11 @@ void *street_thread(void *junk) {
 	while (1) {
 
 		/* YOUR CODE HERE. */
-                /* Currently the body of the loop is empty. There's		*/
-                /* no communication between street and cars, i.e. all	*/
-                /* cars are admitted without regard of the allowed		*/ 
-                /* limit, which direction a car is going, and whether	*/
-                /* the street needs to be repaired          			*/
+		/* Currently the body of the loop is empty. There's		*/
+		/* no communication between street and cars, i.e. all	*/
+		/* cars are admitted without regard of the allowed		*/ 
+		/* limit, which direction a car is going, and whether	*/
+		/* the street needs to be repaired          			*/
 
 		repair_street();
 
@@ -102,13 +116,13 @@ void *street_thread(void *junk) {
 
 /* Code executed by an incoming car to enter the street.
  * You have to implement this.
- */
+*/
 void
 incoming_enter() {
         /* You might want to add synchronization for the simulations variables	*/
 	/* 
 	 *  YOUR CODE HERE. 
-	 */
+	*/
 }
 
 /* Code executed by an outgoing car to enter the street.
@@ -119,12 +133,12 @@ outgoing_enter() {
         /* You might want to add synchronization for the simulations variables	*/
 	/* 
 	 *  YOUR CODE HERE. 
-	 */
+	*/
 }
 
 /* Code executed by a car to simulate the duration for travel
  * You do not need to add anything here.  
- */
+*/
 static void 
 travel(int t) {
 	sleep(t);
@@ -133,12 +147,12 @@ travel(int t) {
 
 /* Code executed by an incoming car when leaving the street.
  * You need to implement this.
- */
+*/
 static void 
 incoming_leave() {
 	/* 
 	 *  YOUR CODE HERE. 
-	 */
+	*/
 }
 
 
@@ -149,13 +163,13 @@ static void
 outgoing_leave() {
 	/* 
 	 *  YOUR CODE HERE. 
-	 */
+	*/
 }
 
 /* Main code for incoming car threads.  
  * You do not need to change anything here, but you can add
  * debug statements to help you during development/debugging.
- */
+*/
 void*
 incoming_thread(void *arg) {
 	car *car_info = (car*)arg;
@@ -163,7 +177,7 @@ incoming_thread(void *arg) {
 	/* enter street */
 	incoming_enter();
 	
-        /* Car travel --- do not make changes to the 3 lines below*/
+    /* Car travel --- do not make changes to the 3 lines below */
 	printf("Incoming car %d has entered and travels for %d minutes\n", car_info->car_id, car_info->travel_time);
 	travel(car_info->travel_time);
 	printf("Incoming car %d has travelled and prepares to leave\n", car_info->car_id);
@@ -177,7 +191,7 @@ incoming_thread(void *arg) {
 /* Main code for outgoing car threads.  
  * You do not need to change anything here, but you can add
  * debug statements to help you during development/debugging.
- */
+*/
 void*
 outgoing_thread(void *arg) {
 	car *car_info = (car*)arg;
@@ -185,7 +199,7 @@ outgoing_thread(void *arg) {
 	/* enter street */
 	outgoing_enter();
 	
-        /* Car travel --- do not make changes to the 3 lines below*/
+        /* Car travel --- do not make changes to the 3 lines below */
 	printf("Outgoing car %d has entered and travels for %d minutes\n", car_info->car_id, car_info->travel_time);	
 	travel(car_info->travel_time);
 	printf("Outgoing car %d has travelled and prepares to leave\n", car_info->car_id);
@@ -198,7 +212,7 @@ outgoing_thread(void *arg) {
 
 /* Main function sets up simulation and prints report
  * at the end.
- */
+*/
 int main(int nargs, char **args) {
 	int i;
 	int result;
