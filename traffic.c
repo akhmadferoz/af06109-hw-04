@@ -8,6 +8,8 @@
  * 	  However, the streaming should keep running without deadlock in either direction irrespective of how cars arrive
  * 3. After every 7th car leaves, the street becomes unusable and has to be repaired. 
  * 	  Cars do not enter the street unless it is ready to use. Only the street thread is allowed to repair the street
+ * 
+ * Input format: 	ENTRY_TIME_SINCE_LAST_CAR TRAVEL_DURATION DIRECTION
  */
 
 #include <pthread.h>
@@ -30,8 +32,9 @@
 #define MAX_THREADS 4
 
 /* Add your synchronization variables here */
-pthread_mutex_t mutex;
-pthread_cond_t cond;
+pthread_mutex_t mutexStreet;
+pthread_cond_t condStreet;
+pthread_cond_t condFLow;
 
 /* These obvious variables are at your disposal. Feel free to remove them if you want */
 static int cars_on_street;   		/* Total numbers of cars currently on the street */
@@ -61,8 +64,10 @@ initialize(car *arr, char *filename) {
 	/* Initialize your synchronization variables (and 
          * other variables you might use) here
 	*/
-	pthread_mutex_init(&mutex, NULL);
-	pthread_cond_init(&cond, NULL);
+	pthread_mutex_init(&mutexStreet, NULL);
+	pthread_cond_init(&condStreet, NULL);
+	pthread_cond_init(&condFLow, NULL);
+
 
 	/* Read in the data file and initialize the car array */
 	FILE *fp;
@@ -77,6 +82,14 @@ initialize(car *arr, char *filename) {
 	}
 	fclose(fp);
 	return i;
+}
+
+static int deInitialize() {
+	pthread_mutex_destroy(&mutexStreet);
+	pthread_cond_destroy(&condStreet);
+	pthread_cond_destroy(&condFLow);
+
+	return 0;
 }
 
 /* Code executed by street on the event of repair 
@@ -106,7 +119,13 @@ void *street_thread(void *junk) {
 		/* limit, which direction a car is going, and whether	*/
 		/* the street needs to be repaired          			*/
 
-		repair_street();
+		pthread_mutex_lock(&mutexStreet);
+		if(cars_since_repair == USAGE_LIMIT && cars_on_street == 0) {
+			repair_street();
+			cars_since_repair = 0;
+		}
+		pthread_mutex_unlock(&mutexStreet);
+		pthread_cond_signal(&condStreet);
 
 	}
 
@@ -118,22 +137,51 @@ void *street_thread(void *junk) {
  * You have to implement this.
 */
 void
-incoming_enter() {
+incoming_enter(int car_id) {
         /* You might want to add synchronization for the simulations variables	*/
 	/* 
 	 *  YOUR CODE HERE. 
 	*/
+	pthread_mutex_lock(&mutexStreet);
+	// wait until the street is ready to use
+	while(cars_on_street == ALLOWED_CARS || outgoing_onstreet != 0 || cars_since_repair == USAGE_LIMIT) {
+		printf("Incoming car %d is waiting to enter due to street repair...\n", car_id);
+		pthread_cond_wait(&condStreet, &mutexStreet);
+	} 
+
+	if (cars_on_street < ALLOWED_CARS && outgoing_onstreet == 0) {
+		incoming_onstreet++;
+		cars_on_street++;
+	}
+	else {
+		pthread_cond_wait(&condFLow, &mutexStreet);
+	}
+	pthread_mutex_unlock(&mutexStreet);
 }
 
 /* Code executed by an outgoing car to enter the street.
  * You have to implement this.
  */
 void
-outgoing_enter() {
+outgoing_enter(int car_id) {
         /* You might want to add synchronization for the simulations variables	*/
 	/* 
 	 *  YOUR CODE HERE. 
 	*/
+	pthread_mutex_lock(&mutexStreet);
+	// wait until the street is ready to use
+	while(cars_on_street == ALLOWED_CARS || incoming_onstreet != 0 || cars_since_repair == USAGE_LIMIT) {
+		printf("Outgoing car %d is waiting to enter due to street repair...\n", car_id);
+		pthread_cond_wait(&condStreet, &mutexStreet);
+	}
+	if (cars_on_street < ALLOWED_CARS && incoming_onstreet == 0) {
+		outgoing_onstreet++;
+		cars_on_street++;
+	}
+	else {
+		pthread_cond_wait(&condFLow, &mutexStreet);
+	}
+	pthread_mutex_unlock(&mutexStreet);
 }
 
 /* Code executed by a car to simulate the duration for travel
@@ -149,10 +197,23 @@ travel(int t) {
  * You need to implement this.
 */
 static void 
-incoming_leave() {
+incoming_leave(int car_id) {
 	/* 
 	 *  YOUR CODE HERE. 
 	*/
+	pthread_mutex_lock(&mutexStreet);
+	incoming_onstreet--;
+	cars_on_street--;
+	cars_since_repair++;
+
+	// printf("-------------\n");
+	// printf("Incoming Leave\n");
+	// printf("I | O | S | R\n");
+	// printf("%d | %d | %d | %d\n", incoming_onstreet, outgoing_onstreet, cars_on_street, cars_since_repair);
+	// printf("-------------\n"); 
+
+	pthread_mutex_unlock(&mutexStreet);
+	pthread_cond_signal(&condStreet);
 }
 
 
@@ -160,10 +221,23 @@ incoming_leave() {
  * You need to implement this.
  */
 static void 
-outgoing_leave() {
+outgoing_leave(int car_id) {
 	/* 
 	 *  YOUR CODE HERE. 
 	*/
+	pthread_mutex_lock(&mutexStreet);
+	outgoing_onstreet--;
+	cars_on_street--;
+	cars_since_repair++;
+
+	// printf("-------------\n");
+	// printf("Outgoing Leave\n");
+	// printf("I | O | S | R\n");
+	// printf("%d | %d | %d | %d\n", incoming_onstreet, outgoing_onstreet, cars_on_street, cars_since_repair);
+	// printf("-------------\n"); 
+
+	pthread_mutex_unlock(&mutexStreet);
+	pthread_cond_signal(&condStreet);
 }
 
 /* Main code for incoming car threads.  
@@ -174,16 +248,27 @@ void*
 incoming_thread(void *arg) {
 	car *car_info = (car*)arg;
 
+	while(outgoing_onstreet != 0) {
+		printf("Incoming car %d is waiting for outgoing cars to leave...\n", car_info->car_id);
+		pthread_cond_wait(&condFLow, &mutexStreet);
+	}
+
 	/* enter street */
-	incoming_enter();
+	incoming_enter(car_info->car_id);
 	
     /* Car travel --- do not make changes to the 3 lines below */
 	printf("Incoming car %d has entered and travels for %d minutes\n", car_info->car_id, car_info->travel_time);
 	travel(car_info->travel_time);
 	printf("Incoming car %d has travelled and prepares to leave\n", car_info->car_id);
 
+	// printf("-------------\n");
+	// printf("Incoming Thread\n");
+	// printf("I | O | S | R\n");
+	// printf("%d | %d | %d | %d\n", incoming_onstreet, outgoing_onstreet, cars_on_street, cars_since_repair);
+	// printf("-------------\n");
+
 	/* leave street */
-	incoming_leave();  
+	incoming_leave(car_info->car_id);  
 
 	pthread_exit(NULL);
 }
@@ -196,16 +281,27 @@ void*
 outgoing_thread(void *arg) {
 	car *car_info = (car*)arg;
 
+	while(incoming_onstreet != 0) {
+		printf("Outgoing car %d is waiting for incoming cars to leave...\n", car_info->car_id);
+		pthread_cond_wait(&condFLow, &mutexStreet);
+	}
+
 	/* enter street */
-	outgoing_enter();
+	outgoing_enter(car_info->car_id);
 	
         /* Car travel --- do not make changes to the 3 lines below */
 	printf("Outgoing car %d has entered and travels for %d minutes\n", car_info->car_id, car_info->travel_time);	
 	travel(car_info->travel_time);
 	printf("Outgoing car %d has travelled and prepares to leave\n", car_info->car_id);
 
+	// printf("-------------\n");
+	// printf("Outgoing Thread\n");
+	// printf("I | O | S | R\n"); 
+	// printf("%d | %d | %d | %d\n", incoming_onstreet, outgoing_onstreet, cars_on_street, cars_since_repair);
+	// printf("-------------\n");
+
 	/* leave street */
-	outgoing_leave();
+	outgoing_leave(car_info->car_id);
 
 	pthread_exit(NULL);
 }
@@ -247,6 +343,8 @@ int main(int nargs, char **args) {
 		car_info[i].car_id = i;
 		sleep(car_info[i].arrival_time);
 
+		// printf("...Processing car %d\n", car_info[i].car_id);
+
 		if (strcmp (car_info[i].car_direction, INCOMING)==0)
 			result = pthread_create(&car_tid[i], NULL, incoming_thread, (void *)&car_info[i]);
 		else // car is outgoing
@@ -268,6 +366,8 @@ int main(int nargs, char **args) {
 	pthread_cancel(street_tid);
 
 	printf("Traffic simulation complete.\n");
+
+	deInitialize();
 
 	return 0;
 }

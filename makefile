@@ -1,7 +1,7 @@
 build:
 	@echo $(shell pwd)
 	@echo "Compiling..."
-	gcc -Wall -lpthread ./traffic.c -o main.out -v
+	gcc  ./traffic.c -o main.out 
 	@echo "\nDone compiling.\n"
 	@echo "Generating traffic simulation file...\n"
 	cp main.out traffic
